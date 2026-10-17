@@ -1,559 +1,871 @@
-import { useEffect, useState } from "react";
-import { mesasType, ReservasType, sectoresType, turnosType } from "./ApiFront/Types/BDTypes";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Link, Stack } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import FlashMessage, { showMessage } from "react-native-flash-message";
 import { useLoginStore } from "./store/useLoginStore";
 import { getMesas, getReservas, getSectores, getTurnos } from "./ApiFront/Gets/GetDatos";
-import { ActivityIndicator,View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Button, ScrollView, TextInput, Alert, } from "react-native";
-import { capitalize, getHoraActual, izqRellena } from './Funciones/deConversion';
-import { Link, Stack } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import React from "react";
-import { HeaderTitulo } from '../components/HeaderTitulo'
+import {
+  AbrirMesa,
+  ConfCumpReserva,
+  GrabarComensales,
+  isSoloOcupada,
+  LiberarMesa,
+} from "./ApiFront/Posts/PostDatos";
+import { mesasType, ReservasType, sectoresType, turnosType } from "./ApiFront/Types/BDTypes";
+import { HeaderTitulo } from "../components/HeaderTitulo";
 import Colors from "../constants/Colors";
-//import DateTimePicker from '@react-native-community/datetimepicker';
-import { AbrirMesa, CambiarReserva, ConfCumpReserva, GrabarComensales, isSoloOcupada, LiberarMesa } from "./ApiFront/Posts/PostDatos";
-import { AntDesign } from '@expo/vector-icons';
-import FlashMessage from "react-native-flash-message"
-import { showMessage, hideMessage } from "react-native-flash-message";
-//import { DayPicker } from "react-day-picker";
-//import "react-day-picker/style.css";
 
 const reservas = () => {
-    const [reservas, setReservas] = useState<ReservasType[]>([]);
-    const [reserva, setReserva] = useState<ReservasType>();
-    const [turnos, setTurnos] = useState<turnosType[]>([]);
-    const [sectores, setSectores] = useState<sectoresType[]>([]);
-    const [mesas, setMesas] = useState<mesasType[]>([]);
-    const {getUrl,getBaseDatos,BaseDatos,mozo,dispId,setComensales} = useLoginStore();
-    const [isOk, setIsOk] = useState(false);
-    const [isPending, setIsPending] = useState(false); 
-    const urlBase = getUrl()
-    const base = getBaseDatos()
-    const [text, onChangeText] = useState('');
-    const [idTurnoSel, setIdTurnoSel] = useState(0);
-    const [turnoSel, setTurnoSel] = useState('Todos');
-
-    const [day, setDay] = useState(Number(new Date().getDate()));
-    const [mes, setMes] = useState(Number(new Date().getMonth())+1);
-    const [anio, setAnio] = useState(Number(new Date().getFullYear()));
-    const [date, setDate] = useState<Date | undefined>(new Date());
-
-    const [mode, setMode] = useState('date');
-    const [show, setShow] = useState(false);
-    const [selected, setSelected] = useState<Date | undefined>(new Date());
-
-    // Seelct Picker Turnos
-    const [showSelect, setShowSelect] = useState(false);
-    const handleSelect = () => {
-        setShowSelect(true);
-    }
-
-    // SafeArea
-    const { bottom, top, right, left } = useSafeAreaInsets();
-
-    const [ubicarReserva, setUbicarReserva] = useState(false);
-    const [idSector, setIdSector] = useState(0);
-    const [sectorSel, setSectorSel] = useState('');
-    const [actReservas, setActReservas] = useState(false);
-
-
-    //console.log('Reserva:',r)
-   
-
-    const handleReservas = async(r: ReservasType) => {
-        console.log('intento de ocupacion / confirmacion',r.confirmada,r.mesa)
-        if (r.confirmada){
-          setReserva(r);
-          if  (r.mesa > 0) {
-            const ocup = await isSoloOcupada(r.mesa,urlBase,base)
-            if (ocup) {
-              //Alert.alert('La mesa '+ r.mesa +' ya esta ocupada, por favor seleccione otra');
-              showMessage({
-                          message: "ATENCION !!",
-                          description: "La mesa "+ r.mesa +" ya esta ocupada, por favor seleccione otra",
-                          type: "danger",
-              });
-              setUbicarReserva(true);
-            } else {  
-              // Si ya tiene mesa asignada la ocupo
-              const res = await AbrirMesa(r.mesa,mozo,urlBase,base)
-              console.log('Abrir Mesa:',res)
-              const res1 = await GrabarComensales(r.mesa,r.cant,urlBase,base)
-              const res2 = await LiberarMesa(r.mesa,false,urlBase,BaseDatos)
-              const res3 = await ConfCumpReserva(r.idReserva,true,true,urlBase,BaseDatos)
-              setActReservas(!actReservas);
-              //Alert.alert('La Mesa '+r.mesa+' fue ocupada');
-              showMessage({
-                message: "CONFIRMACION !!",
-                description: "La mesa "+ r.mesa +", fue ocupada",
-                type: "success",
-              });
-              setComensales(r.cant);
-            }  
-          } else { 
-            setUbicarReserva(true);
-          }
-        } else {    
-          // Confirmar Reserva
-          const res = await ConfCumpReserva(r.idReserva,true,false,urlBase,BaseDatos)
-          setActReservas(!actReservas);
-          //Alert.alert('Reserva Confirmada');
-          showMessage({
-            message: "CONFIRMACION !!",
-            description: "La recserva fue confirmada",
-            type: "success",
-          });
-        }
-    } 
-
-    const handleSector = (s: sectoresType) => {
-      // Obtengo los sectores de las mesas
-      const load = async () => {
-        const { mesas, isError, isPending } = await getMesas(s.idSector,-1,urlBase,base);
-        setMesas(mesas.filter(m => m.ocupada == 'N'));
-      };
-      setIdSector(s.idSector);
-      setSectorSel(s.descripcion);
-      load();
-
-  }
-
-  const handleMesas = async (m:mesasType) => {     
-    console.log('Mesa:',m.nroMesa)
-    if (m.ocupada == 'N') {
-       // Ocupo la mesa seleccionada
-       const res = await AbrirMesa(m.nroMesa,mozo,urlBase,base)
-       const res1 = await GrabarComensales(m.nroMesa,m.cantPersonas,urlBase,base)
-       const res2 = await LiberarMesa(m.nroMesa,false,urlBase,BaseDatos)
-       const res3 = await ConfCumpReserva(reserva.idReserva,true,true,urlBase,BaseDatos)
-       //Alert.alert('Se ocupo la Mesa '+m.nroMesa);
-       showMessage({
-        message: "CONFIRMACION !!",
-        description: "La mesa "+ m.nroMesa +", fue ocupada",
-        type: "success",
-       });
-       setActReservas(!actReservas);
-       setComensales(m.cantPersonas);
-    } else {
-      //Alert.alert('La mesa '+ m.nroMesa +'ya esta ocupada');
-      showMessage({
-        message: "ATENCION !!",
-        description: "La mesa "+ m.nroMesa +", ya esta ocupada",
-        type: "danger",
-       });
-    }
-    setUbicarReserva(false);
-    setIdSector(0);
-
-}
-
-  const handleTurno = async (t:turnosType) => {
-      setShowSelect(false);
-      setIdTurnoSel(t.idTurno);
-      setTurnoSel(t.descripcion);
-  }
-
-  const handleBuscar =  () => { 
-    setActReservas(!actReservas);
-  }
-
-  const handleDay =  (day) => { 
-    if (day >= 0 && day < 32 ) {
-      setDay(day);
-      setDate(new Date(anio,mes-1,day))
-    }  
-  }
-
-  const handleMes =  (mes) => { 
-    if (mes >= 0 && mes < 13 ) {
-      setMes(mes);
-      setDate(new Date(anio,mes-1,day))
-    }  
-  }
-
-  const handleAnio =  (anio) => { 
-    
-      setAnio(anio);
-      setDate(new Date(anio,mes-1,day))
-    
-  }
-
-  useEffect(() => {   
-      const load = async () => {
-        const result = await getTurnos(urlBase,base);
-        setTurnos(result);
-    };
-        load();    
-  }, []); 
-      
-  useEffect(() => {   
-        const load = async () => {
-            const result = await getSectores(urlBase,base,'-1');
-            setSectores(result);
-        };
-        load();    
-  }, []);  
+  const { getUrl, getBaseDatos, BaseDatos, mozo, setComensales } = useLoginStore();
+  const urlBase = getUrl();
+  const base = getBaseDatos();
+  const [reservas, setReservas] = useState<ReservasType[]>([]);
+  const [turnos, setTurnos] = useState<turnosType[]>([]);
+  const [sectores, setSectores] = useState<sectoresType[]>([]);
+  const [mesas, setMesas] = useState<mesasType[]>([]);
+  const [fecha, setFecha] = useState(new Date());
+  const [idTurnoSel, setIdTurnoSel] = useState(0);
+  const [busqueda, setBusqueda] = useState("");
+  const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState("");
+  const [actualizacion, setActualizacion] = useState(0);
+  const [reservaActiva, setReservaActiva] = useState<ReservasType | null>(null);
+  const [sectorActivo, setSectorActivo] = useState<sectoresType | null>(null);
+  const [cargandoMesas, setCargandoMesas] = useState(false);
+  const [errorMesas, setErrorMesas] = useState("");
+  const [accionEnCurso, setAccionEnCurso] = useState(false);
 
   useEffect(() => {
-    console.log('Actualizo reservas',date.toISOString(),idTurnoSel)
-    const load = async () => {
-    const res = await getReservas(urlBase,base,date.toISOString(),idTurnoSel);
-          setReservas(res.filter(r => !r.cumplida && r.nombre.toUpperCase().includes(text.toUpperCase())) );
-          onChangeText('');
+    let activo = true;
+
+    const cargarFiltros = async () => {
+      try {
+        const [listaTurnos, listaSectores] = await Promise.all([
+          getTurnos(urlBase, base),
+          getSectores(urlBase, base, "-1"),
+        ]);
+        if (activo) {
+          setTurnos(listaTurnos);
+          setSectores(listaSectores);
+        }
+      } catch (error) {
+        console.error("Error al cargar los filtros de reservas:", error);
+        if (activo) {
+          showMessage({
+            message: "No se pudieron cargar los turnos y sectores",
+            description: "Revisá la conexión con el servidor e intentá nuevamente.",
+            type: "danger",
+          });
+        }
+      }
     };
-    load();    
-  }, [actReservas,idTurnoSel]);
 
-    return (       
-    <SafeAreaView style={styles.container}>     
-        <FlashMessage position="top" />
-        <View style={styles.container_input}>
-          <Stack.Screen options={
-            {headerTitle: () => <HeaderTitulo icono="calendar-outline" titulo="RESERVAS" />, headerTitleAlign: 'center'}
-            }
-          /> 
-     
-          <View style={{ flexDirection: 'row', alignItems:'center', justifyContent: 'center' }}>
-           <TextInput
-                    style={styles.input_fecha_dm}
-                    onChangeText={handleDay}
-                    value={day.toString()}
-                    maxLength={2}
-                    keyboardType='numeric'
-                  />
-            <TextInput
-                    style={styles.input_fecha_dm}
-                    onChangeText={handleMes}
-                    value={mes.toString()}
-                    maxLength={2}
-                    keyboardType='numeric'
-                  />    
-             <TextInput
-                    style={styles.input_fecha_y}
-                    onChangeText={handleAnio}
-                    value={anio.toString()}
-                    maxLength={4}
-                    keyboardType='numeric'
-                  />
-          </View>             
-  
-          <TouchableOpacity onPress={handleSelect}>
-            <Text style={styles.input_turno} >{turnoSel}</Text>
-          </TouchableOpacity>
-          <TextInput
-                  style={styles.input_text}
-                  onChangeText={onChangeText}
-                  value={text}     
-                  placeholder='Buscar x Nombre'   
-                  placeholderTextColor='grey'
-          />  
-        
-          <View style={{marginLeft:10}}>
-           
-            <TouchableOpacity onPress={handleBuscar}>
-            <AntDesign name="search1" size={28} color={Colors.colorborderubro} />
-            </TouchableOpacity>
-       
-          </View>
-           
-        </View>
+    cargarFiltros();
+    return () => {
+      activo = false;
+    };
+  }, [urlBase, base]);
 
-        {/* Despliego las reservas */
-         !ubicarReserva && !showSelect &&
-        
-         <View style={{flex:1, height:'100%', margin:20, backgroundColor: Colors.background, }}>
-           <ScrollView> 
-            {
-             reservas.map((r) => (
-              <View key={r.idReserva}>
-                 <TouchableOpacity onPress={() => handleReservas(r)}>
-                 <View style={styles.cont_reservas}>
-                   <View >     
-                       <Text style={[ r.confirmada ? styles.textResConf : styles.textResSinConf ]}>
-                        {r.hora} &nbsp;-&nbsp; ({r.cant}) &nbsp;-&nbsp; {r.nombre}&nbsp;{r.mesa > 0 ? ' M: ' + r.mesa : ''}
-                        </Text>
-                   </View>
-                 </View>  
-                 </TouchableOpacity>
-              </View>  
-             ))
-             }
-           </ScrollView>
-         </View> 
-         }
+  useEffect(() => {
+    let activo = true;
+    setCargando(true);
+    setErrorCarga("");
 
-
-        {showSelect &&
-        <View style={{flex:1, height:'100%', margin:20, backgroundColor: Colors.background, }}>
-          <Text style={styles.text}>Seleccione un Turno</Text>
-          <ScrollView > 
-          {
-          turnos.map((t) => (
-            <View key={t.idTurno}>
-              
-              <TouchableOpacity key={t.idTurno} onPress={() => handleTurno(t)}>
-              <View style={styles.cont_turnos}>
-                <View >     
-                  <Text style={styles.text }>{t.descripcion}</Text>
-                </View>
-              </View>  
-              </TouchableOpacity>
-            
-            </View>
-          ))
-          }
-          </ScrollView>
-        </View>
-        } 
-        {/*
-        {show && (
-        <DateTimePicker
-          testID="dateTimePicker"
-          value={date}
-          locale="es-ES"
-          timeZoneName={'America/Argentina/Buenos_Aires'}
-          is24Hour={true}
-          onChange={onChange}
-        />
-     
-        )}
-        */}
-
-        {/* Ubicar Reserva */
-        ubicarReserva && idSector == 0 &&
-        <View style={{flex:1, height:'100%', margin:20, backgroundColor: Colors.background, }}>
-          <Text style={styles.text}>Seleccione un Sector</Text>
-          <ScrollView> 
-           {
-            sectores.map((s) => (
-              <View  key={s.idSector}>
-              <TouchableOpacity onPress={() => handleSector(s)}>  
-              <View style={styles.cont_sectores}>                
-                  <View >     
-                      <Text style={styles.text }>{s.descripcion}</Text>
-                  </View>
-               </View>   
-               </TouchableOpacity>  
-             </View>
-            ))
-            }
-          </ScrollView>
-        </View>
+    getReservas(urlBase, base, fecha.toISOString(), idTurnoSel)
+      .then((lista) => {
+        if (activo) setReservas(lista.filter((reserva) => !reserva.cumplida));
+      })
+      .catch((error: unknown) => {
+        console.error("Error al cargar las reservas:", error);
+        if (activo) {
+          setReservas([]);
+          setErrorCarga("No pudimos cargar las reservas. Revisá la conexión e intentá de nuevo.");
         }
+      })
+      .finally(() => {
+        if (activo) setCargando(false);
+      });
 
-         {/* Ubicar Reserva */
-        ubicarReserva && idSector > 0 &&
-        <View style={{flex:1, height:'100%', margin:20, backgroundColor: Colors.background, }}>
-          <Text style={styles.text}>Seleccione una Mesa</Text>
-          <ScrollView> 
-           {
-            mesas.map((m) => (
-              <View  key={m.nroMesa}>
-              <TouchableOpacity onPress={() => handleMesas(m)}> 
-              <View style={styles.cont_sectores}>  
-                  <View >     
-                      <Text style={styles.text }>Mesa &nbsp;{m.nroMesa}</Text>
-                  </View>
+    return () => {
+      activo = false;
+    };
+  }, [urlBase, base, fecha, idTurnoSel, actualizacion]);
+
+  const reservasFiltradas = useMemo(() => {
+    const termino = busqueda.trim().toLocaleLowerCase();
+    if (!termino) return reservas;
+    return reservas.filter((reserva) => reserva.nombre.toLocaleLowerCase().includes(termino));
+  }, [reservas, busqueda]);
+
+  const cambiarFecha = (dias: number) => {
+    setFecha((actual) => new Date(actual.getFullYear(), actual.getMonth(), actual.getDate() + dias));
+  };
+
+  const mostrarReservas = () => setActualizacion((valor) => valor + 1);
+
+  const ocuparMesa = async (reserva: ReservasType, nroMesa: number) => {
+    const ocupada = await isSoloOcupada(nroMesa, urlBase, base);
+    if (ocupada) {
+      showMessage({
+        message: "Mesa ocupada",
+        description: `La mesa ${nroMesa} ya está ocupada. Seleccioná otra.`,
+        type: "danger",
+      });
+      return false;
+    }
+
+    await AbrirMesa(nroMesa, mozo, urlBase, base);
+    await GrabarComensales(nroMesa, reserva.cant, urlBase, base);
+    await LiberarMesa(nroMesa, false, urlBase, BaseDatos);
+    await ConfCumpReserva(reserva.idReserva, true, true, urlBase, BaseDatos);
+    setComensales(reserva.cant);
+    setReservaActiva(null);
+    setSectorActivo(null);
+    mostrarReservas();
+    showMessage({
+      message: "Reserva atendida",
+      description: `La mesa ${nroMesa} fue ocupada.`,
+      type: "success",
+    });
+    return true;
+  };
+
+  const seleccionarReserva = async (reserva: ReservasType) => {
+    if (accionEnCurso) return;
+    setAccionEnCurso(true);
+    try {
+      if (!reserva.confirmada) {
+        await ConfCumpReserva(reserva.idReserva, true, false, urlBase, BaseDatos);
+        mostrarReservas();
+        showMessage({
+          message: "Reserva confirmada",
+          description: `La reserva de ${reserva.nombre} quedó confirmada.`,
+          type: "success",
+        });
+      } else if (reserva.mesa > 0) {
+        setReservaActiva(reserva);
+        await ocuparMesa(reserva, reserva.mesa);
+      } else {
+        setReservaActiva(reserva);
+        setSectorActivo(null);
+      }
+    } catch (error) {
+      console.error("Error al gestionar la reserva:", error);
+      showMessage({
+        message: "No se pudo completar la acción",
+        description: "Intentá nuevamente. Si el problema continúa, revisá la conexión.",
+        type: "danger",
+      });
+    } finally {
+      setAccionEnCurso(false);
+    }
+  };
+
+  const seleccionarSector = async (sector: sectoresType) => {
+    setSectorActivo(sector);
+    setCargandoMesas(true);
+    setErrorMesas("");
+    try {
+      const resultado = await getMesas(sector.idSector, -1, urlBase, base);
+      if (resultado.isError) {
+        setErrorMesas("No pudimos cargar las mesas. Revisá la conexión e intentá de nuevo.");
+        return;
+      }
+      setMesas(resultado.mesas.filter((mesa) => mesa.ocupada === "N"));
+    } catch (error) {
+      console.error("Error al cargar las mesas del sector:", error);
+      showMessage({
+        message: "No se pudieron cargar las mesas",
+        description: "Intentá seleccionar el sector nuevamente.",
+        type: "danger",
+      });
+      setSectorActivo(null);
+    } finally {
+      setCargandoMesas(false);
+    }
+  };
+
+  const seleccionarMesa = async (mesa: mesasType) => {
+    if (!reservaActiva || accionEnCurso) return;
+    setAccionEnCurso(true);
+    try {
+      await ocuparMesa(reservaActiva, mesa.nroMesa);
+    } catch (error) {
+      console.error("Error al asignar la mesa a la reserva:", error);
+      showMessage({
+        message: "No se pudo asignar la mesa",
+        description: "Intentá nuevamente. Si el problema continúa, revisá la conexión.",
+        type: "danger",
+      });
+    } finally {
+      setAccionEnCurso(false);
+    }
+  };
+
+  const cerrandoAsignacion = () => {
+    setReservaActiva(null);
+    setSectorActivo(null);
+    setMesas([]);
+  };
+
+  const tituloAsignacion = sectorActivo ? "Elegí una mesa" : "Elegí un sector";
+  const fechaTexto = fecha.toLocaleDateString("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <FlashMessage position="top" />
+      <Stack.Screen
+        options={{
+          headerTitle: () => <HeaderTitulo icono="calendar-outline" titulo="RESERVAS" />,
+          headerTitleAlign: "center",
+        }}
+      />
+
+      <ScrollView contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
+        {reservaActiva ? (
+          <>
+            <View style={styles.encabezadoSeccion}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Volver a las reservas"
+                style={styles.botonIcono}
+                onPress={sectorActivo ? () => setSectorActivo(null) : cerrandoAsignacion}
+              >
+                <Ionicons name="arrow-back" size={21} color={Colors.colorazulboton} />
+              </TouchableOpacity>
+              <View style={styles.encabezadoTexto}>
+                <Text style={styles.tituloSeccion}>{tituloAsignacion}</Text>
+                <Text style={styles.subtitulo}>
+                  {reservaActiva.nombre} · {reservaActiva.cant} personas
+                </Text>
               </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar asignación"
+                style={styles.botonIcono}
+                onPress={cerrandoAsignacion}
+              >
+                <Ionicons name="close" size={22} color={Colors.itemsviejos} />
               </TouchableOpacity>
-             </View>
-            ))
-            }
-          </ScrollView>
-        </View>
-        }
-    
-        <View style={[{bottom, },styles.cont_Pie  ]}>
-          <Link href="/mozos" replace asChild>  
-              <TouchableOpacity> 
-                  <Text style={styles.textBtSalir}>Salir</Text> 
+            </View>
+            {sectorActivo ? (
+              cargandoMesas ? (
+                <View style={styles.estado}>
+                  <ActivityIndicator size="large" color={Colors.colorazulboton} />
+                  <Text style={styles.estadoTexto}>Buscando mesas disponibles…</Text>
+                </View>
+              ) : errorMesas ? (
+                <View style={styles.estado}>
+                  <Ionicons name="cloud-offline-outline" size={36} color={Colors.colornjaboton} />
+                  <Text style={styles.estadoTitulo}>No se pudieron cargar las mesas</Text>
+                  <Text style={styles.estadoTexto}>{errorMesas}</Text>
+                  <TouchableOpacity
+                    style={styles.botonReintentar}
+                    onPress={() => seleccionarSector(sectorActivo)}
+                  >
+                    <Text style={styles.botonReintentarTexto}>Reintentar</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : mesas.length > 0 ? (
+                <View style={styles.opcionesGrid}>
+                  {mesas.map((mesa) => (
+                    <TouchableOpacity
+                      key={mesa.nroMesa}
+                      accessibilityRole="button"
+                      style={[styles.opcionCard, styles.mesaCard]}
+                      onPress={() => seleccionarMesa(mesa)}
+                      disabled={accionEnCurso}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons name="restaurant-outline" size={23} color={Colors.colorazulboton} />
+                      <Text style={styles.opcionTitulo}>Mesa {mesa.nroMesa}</Text>
+                      <Text style={styles.opcionDetalle}>{mesa.descMesa || "Disponible"}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.estado}>
+                  <Ionicons name="search-outline" size={34} color={Colors.itemsviejos} />
+                  <Text style={styles.estadoTitulo}>No hay mesas disponibles</Text>
+                  <Text style={styles.estadoTexto}>Probá con otro sector.</Text>
+                </View>
+              )
+            ) : (
+              <View style={styles.opcionesGrid}>
+                {sectores.map((sector) => (
+                  <TouchableOpacity
+                    key={sector.idSector}
+                    accessibilityRole="button"
+                    style={styles.opcionCard}
+                    onPress={() => seleccionarSector(sector)}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="grid-outline" size={23} color={Colors.colorazulboton} />
+                    <Text style={styles.opcionTitulo}>{sector.descripcion}</Text>
+                    <Text style={styles.opcionDetalle}>Ver mesas disponibles</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <View style={styles.fechaCard}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Día anterior"
+                style={styles.navegarFecha}
+                onPress={() => cambiarFecha(-1)}
+              >
+                <Ionicons name="chevron-back" size={23} color={Colors.colorazulboton} />
               </TouchableOpacity>
-          </Link>
-        </View>
+              <View style={styles.fechaCentro}>
+                <Text style={styles.fechaEtiqueta}>AGENDA DEL DÍA</Text>
+                <Text style={styles.fechaTexto}>{fechaTexto}</Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Día siguiente"
+                style={styles.navegarFecha}
+                onPress={() => cambiarFecha(1)}
+              >
+                <Ionicons name="chevron-forward" size={23} color={Colors.colorazulboton} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.botonHoy} onPress={() => setFecha(new Date())}>
+                <Text style={styles.botonHoyTexto}>Hoy</Text>
+              </TouchableOpacity>
+            </View>
 
-  
+            <View style={styles.filtrosCard}>
+              <View style={styles.busqueda}>
+                <Ionicons name="search-outline" size={20} color={Colors.itemsviejos} />
+                <TextInput
+                  style={styles.inputBusqueda}
+                  value={busqueda}
+                  onChangeText={setBusqueda}
+                  placeholder="Buscar por nombre"
+                  placeholderTextColor={Colors.itemsviejos}
+                  returnKeyType="search"
+                  accessibilityLabel="Buscar reservas por nombre"
+                />
+                {busqueda.length > 0 ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Limpiar búsqueda"
+                    onPress={() => setBusqueda("")}
+                  >
+                    <Ionicons name="close-circle" size={20} color={Colors.itemsviejos} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.turnos}
+              >
+                <TouchableOpacity
+                  style={[styles.chipTurno, idTurnoSel === 0 && styles.chipTurnoActivo]}
+                  onPress={() => setIdTurnoSel(0)}
+                >
+                  <Text style={[styles.chipTexto, idTurnoSel === 0 && styles.chipTextoActivo]}>
+                    Todos
+                  </Text>
+                </TouchableOpacity>
+                {turnos.map((turno) => (
+                  <TouchableOpacity
+                    key={turno.idTurno}
+                    style={[
+                      styles.chipTurno,
+                      idTurnoSel === turno.idTurno && styles.chipTurnoActivo,
+                    ]}
+                    onPress={() => setIdTurnoSel(turno.idTurno)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipTexto,
+                        idTurnoSel === turno.idTurno && styles.chipTextoActivo,
+                      ]}
+                    >
+                      {turno.descripcion}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.listaEncabezado}>
+              <View>
+                <Text style={styles.tituloSeccion}>Reservas</Text>
+                <Text style={styles.subtitulo}>
+                  {reservasFiltradas.length} {reservasFiltradas.length === 1 ? "reserva" : "reservas"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Actualizar reservas"
+                style={styles.botonActualizar}
+                onPress={mostrarReservas}
+                disabled={cargando}
+              >
+                {cargando ? (
+                  <ActivityIndicator size="small" color={Colors.colorazulboton} />
+                ) : (
+                  <Ionicons name="refresh-outline" size={21} color={Colors.colorazulboton} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {cargando ? (
+              <View style={styles.estado}>
+                <ActivityIndicator size="large" color={Colors.colorazulboton} />
+                <Text style={styles.estadoTexto}>Cargando reservas…</Text>
+              </View>
+            ) : errorCarga ? (
+              <View style={styles.estado}>
+                <Ionicons name="cloud-offline-outline" size={36} color={Colors.colornjaboton} />
+                <Text style={styles.estadoTitulo}>No hay conexión</Text>
+                <Text style={styles.estadoTexto}>{errorCarga}</Text>
+                <TouchableOpacity style={styles.botonReintentar} onPress={mostrarReservas}>
+                  <Text style={styles.botonReintentarTexto}>Reintentar</Text>
+                </TouchableOpacity>
+              </View>
+            ) : reservasFiltradas.length > 0 ? (
+              <View style={styles.lista}>
+                {reservasFiltradas.map((reserva) => {
+                  const confirmada = reserva.confirmada;
+                  const accion = confirmada
+                    ? reserva.mesa > 0
+                      ? "Abrir mesa"
+                      : "Asignar mesa"
+                    : "Confirmar reserva";
+                  return (
+                    <TouchableOpacity
+                      key={reserva.idReserva}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${accion}: ${reserva.nombre}`}
+                      style={styles.reservaCard}
+                      onPress={() => seleccionarReserva(reserva)}
+                      disabled={accionEnCurso}
+                      activeOpacity={0.78}
+                    >
+                      <View style={styles.horaColumna}>
+                        <Text style={styles.hora}>{reserva.hora}</Text>
+                        <View style={styles.lineaHora} />
+                      </View>
+                      <View style={styles.detalleReserva}>
+                        <View style={styles.nombreFila}>
+                          <Text style={styles.nombre} numberOfLines={1}>{reserva.nombre}</Text>
+                          <View style={[styles.estadoBadge, confirmada ? styles.confirmada : styles.pendiente]}>
+                            <Text style={styles.estadoBadgeTexto}>
+                              {confirmada ? "Confirmada" : "Pendiente"}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.datosReserva}>
+                          <View style={styles.dato}>
+                            <Ionicons name="people-outline" size={15} color={Colors.itemsviejos} />
+                            <Text style={styles.datoTexto}>{reserva.cant} personas</Text>
+                          </View>
+                          {reserva.mesa > 0 ? (
+                            <View style={styles.dato}>
+                              <Ionicons name="restaurant-outline" size={15} color={Colors.itemsviejos} />
+                              <Text style={styles.datoTexto}>Mesa {reserva.mesa}</Text>
+                            </View>
+                          ) : null}
+                          {reserva.sector ? (
+                            <View style={styles.dato}>
+                              <Ionicons name="location-outline" size={15} color={Colors.itemsviejos} />
+                              <Text style={styles.datoTexto}>{reserva.sector}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {reserva.obs ? (
+                          <Text style={styles.observacion} numberOfLines={2}>{reserva.obs}</Text>
+                        ) : null}
+                        <View style={styles.accionFila}>
+                          <Text style={styles.accionTexto}>{accion}</Text>
+                          <Ionicons name="arrow-forward" size={16} color={Colors.colorazulboton} />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.estado}>
+                <Ionicons name="calendar-clear-outline" size={40} color={Colors.itemsviejos} />
+                <Text style={styles.estadoTitulo}>
+                  {busqueda ? "No encontramos coincidencias" : "Día sin reservas"}
+                </Text>
+                <Text style={styles.estadoTexto}>
+                  {busqueda
+                    ? "Probá con otro nombre o limpiá la búsqueda."
+                    : "Cuando haya reservas para esta fecha, aparecerán acá."}
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        <Link href="/mozos" replace asChild>
+          <TouchableOpacity accessibilityRole="button" style={styles.botonSalir}>
+            <Ionicons name="log-out-outline" size={19} color="#fff" />
+            <Text style={styles.botonSalirTexto}>Volver</Text>
+          </TouchableOpacity>
+        </Link>
+      </ScrollView>
+
+      {accionEnCurso ? (
+        <View style={styles.capaCarga}>
+          <ActivityIndicator size="large" color={Colors.colorazulboton} />
+        </View>
+      ) : null}
     </SafeAreaView>
-  )
+  );
+};
 
-}
-
-export default reservas
+export default reservas;
 
 const styles = StyleSheet.create({
-container: {
+  container: {
     flex: 1,
     backgroundColor: Colors.background,
-    height: '100%', 
-},
-
-
-cont_Pie: {
-          backgroundColor: Colors.background,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingTop: 10,
-          width: '100%',
-},
-separador : {
-          backgroundColor: '#fff',
-          width: '100%',
-          height: StyleSheet.hairlineWidth,
-          
-},
-textBtSalir: {
-            width:300,
-            textAlign:'center',
-            fontSize:25,
-            fontWeight:'500',
-            marginBottom:5,
-            color:'white',
-            //height:50,
-            borderRadius:10,
-            backgroundColor:Colors.colorfondoBoton,           
-},
-activ: {
-    margin: 20,
-},
-container_input: { 
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',  
-  marginLeft: 10,
-  marginRight: 10,
-  //backgroundColor: Colors.colorFondoInput,
-},
-input_text: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    height: 40,
-    width: '40%',
-    borderWidth: 1,
-    borderColor: Colors.colorborderubro,
-    padding: 5,
-    color: 'white',
-    //backgroundColor: Colors.backbotones,
-    borderRadius: 8,
-    paddingBottom: 10,
   },
-  input_fecha: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    height: 40,
-    width: 100,
-    borderWidth: 1,
-    borderColor: Colors.colorborderubro,
-    padding: 5,
-    color: 'white',
-    //backgroundColor: Colors.backbotones,
-    borderRadius: 8,
-    paddingBottom: 10,
-    //marginRight: 5,
-    
-    //marginLeft: 5,
-  },  
-  input_fecha_dm: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    height: 40,
-    width: 30,
-    borderWidth: 1,
-    borderColor: Colors.colorborderubro,
-    padding: 5,
-    color: 'white',
-    //backgroundColor: Colors.backbotones,
-    borderRadius: 8,
-    paddingBottom: 10,
-    //marginRight: 5,
-    
-    //marginLeft: 5,
-  },  
-  input_fecha_y: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    height: 40,
-    width: 50,
-    borderWidth: 1,
-    borderColor: Colors.colorborderubro,
-    padding: 5,
-    color: 'white',
-    //backgroundColor: Colors.backbotones,
-    borderRadius: 8,
-    paddingBottom: 10,
-    //marginRight: 5,
-    
-    //marginLeft: 5,
-  },  
-  input_turno: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    height: 40,
-    width: 80,
-    borderWidth: 1,
-    borderColor: Colors.colorborderubro,
-    padding: 5,
-    color: 'white',
-    //backgroundColor: Colors.backbotones,
-    borderRadius: 8,
-    paddingBottom: 10,
-    //marginRight: 5,
-    //marginLeft: 5,
-  },    
-
-  cont_reservas: {
+  contenido: {
+    flexGrow: 1,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 20,
+  },
+  fechaCard: {
+    minHeight: 96,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
-    padding: 10,
-    shadowColor: "white",
-    shadowOpacity: 0.26,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 5,
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    backgroundColor: "#343131",
+    borderWidth: 1,
+    borderColor: "#484343",
+  },
+  navegarFecha: {
+    width: 38,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fechaCentro: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  fechaEtiqueta: {
+    color: Colors.colorazulboton,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    marginBottom: 5,
+  },
+  fechaTexto: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+    textTransform: "capitalize",
+    textAlign: "center",
+  },
+  botonHoy: {
     borderRadius: 10,
-    backgroundColor:  Colors.background,
+    backgroundColor: "#484343",
+    paddingHorizontal: 11,
+    paddingVertical: 8,
   },
-
-  cont_turnos: {
+  botonHoyTexto: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  filtrosCard: {
+    marginTop: 14,
+    borderRadius: 16,
+    padding: 12,
+    backgroundColor: "#343131",
+    borderWidth: 1,
+    borderColor: "#484343",
+  },
+  busqueda: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    borderRadius: 11,
+    backgroundColor: "#242222",
+  },
+  inputBusqueda: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 9,
+  },
+  turnos: {
+    gap: 8,
+    paddingTop: 12,
+  },
+  chipTurno: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#242222",
+    borderWidth: 1,
+    borderColor: "#4c4747",
+  },
+  chipTurnoActivo: {
+    backgroundColor: Colors.colorfondoBoton,
+    borderColor: Colors.colorfondoBoton,
+  },
+  chipTexto: {
+    color: "#d1cccc",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  chipTextoActivo: {
+    color: "#fff",
+  },
+  listaEncabezado: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 22,
+    marginBottom: 10,
+  },
+  tituloSeccion: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  subtitulo: {
+    color: Colors.itemsviejos,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  botonActualizar: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#343131",
+  },
+  lista: {
+    gap: 10,
+  },
+  reservaCard: {
+    flexDirection: "row",
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: "#343131",
+    borderWidth: 1,
+    borderColor: "#484343",
+  },
+  horaColumna: {
+    width: 54,
+    alignItems: "flex-start",
+    paddingTop: 2,
+  },
+  hora: {
+    color: Colors.colorazulboton,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  lineaHora: {
+    width: 1,
+    flex: 1,
+    minHeight: 34,
+    marginTop: 8,
+    marginLeft: 19,
+    backgroundColor: "#555050",
+  },
+  detalleReserva: {
+    flex: 1,
+    minWidth: 0,
+  },
+  nombreFila: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
-    padding: 8,
-    backgroundColor:  'grey',
+    gap: 8,
   },
-
-  cont_sectores: {
+  nombre: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  estadoBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  confirmada: {
+    backgroundColor: "#244336",
+  },
+  pendiente: {
+    backgroundColor: "#56441f",
+  },
+  estadoBadgeTexto: {
+    color: "#f4f1e8",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  datosReserva: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 9,
+  },
+  dato: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
-    padding: 10,
-    //shadowColor: "white",
-    //shadowOpacity: 0.26,
-    //shadowOffset: { width: 0, height: 2 },
-    //shadowRadius: 8,
-    //elevation: 5,
+    gap: 4,
+  },
+  datoTexto: {
+    color: "#c5bfbf",
+    fontSize: 11,
+  },
+  observacion: {
+    color: "#a9a2a2",
+    fontSize: 12,
+    marginTop: 9,
+  },
+  accionFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 9,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#575151",
+  },
+  accionTexto: {
+    color: Colors.colorazulboton,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  estado: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 22,
+    paddingVertical: 42,
+  },
+  estadoTitulo: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  estadoTexto: {
+    color: Colors.itemsviejos,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 7,
+    textAlign: "center",
+  },
+  botonReintentar: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor:  'grey',
+    backgroundColor: Colors.colorfondoBoton,
   },
-  
-  text: {
-    fontFamily: "openSansBold",
-    fontSize: 20,
-    color: 'white',
+  botonReintentarTexto: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
   },
-
- textResConf: {
-    fontFamily: "openSansBold",
-    fontSize: 20,
-    color: 'white',
+  botonSalir: {
+    minHeight: 46,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 13,
+    backgroundColor: Colors.colorfondoBoton,
+    marginTop: 24,
   },
-
- textResSinConf: {
-    fontFamily: "openSansBold",
-    fontSize: 20,
-    color: 'grey',
-    //backgroundColor: 'grey',
-  },  
+  botonSalirTexto: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  encabezadoSeccion: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  botonIcono: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#343131",
+  },
+  encabezadoTexto: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  opcionesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  opcionCard: {
+    width: "47%",
+    minHeight: 112,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    padding: 14,
+    borderRadius: 15,
+    backgroundColor: "#343131",
+    borderWidth: 1,
+    borderColor: "#484343",
+  },
+  mesaCard: {
+    width: "30%",
+    alignItems: "center",
+  },
+  opcionTitulo: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 9,
+  },
+  opcionDetalle: {
+    color: Colors.itemsviejos,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  capaCarga: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
 });
-
