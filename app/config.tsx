@@ -65,7 +65,7 @@ const config = () => {
         console.log('dispositivo no autorizado');
         showMessage({
         message: "ATENCION !!",
-        description: "Este Dispositivo no esta autorizado para conectarse a la App RestoSoft.",
+        description: "Este Dispositivo no esta autorizado para conectarse a la App DinnerSoft.",
         type: "danger",
         });
       } else {

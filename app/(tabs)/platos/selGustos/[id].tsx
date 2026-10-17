@@ -167,11 +167,7 @@ const selGustos = () => {
     setCantMaxGustos(it.cantgustos)
     const load = async () => {
       const result = await getGustos(it.idPlato,urlBase,BaseDatos);
-      if (result.length > 9) {
-        setGustos([...result,{idGusto:0,descGusto:'Seleccione',idPlato:0,idPlatoRel:0}]);
-      } else {
-        setGustos(result);
-      }
+      setGustos(result);
     };
     load();
    

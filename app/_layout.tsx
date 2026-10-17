@@ -64,7 +64,7 @@ export default function StackLayout()  {
         <Stack
             screenOptions={headerTheme}>
 
-            <Stack.Screen name="index" options={{headerTitle: 'Restosoft',
+            <Stack.Screen name="index" options={{headerTitle: 'DinnerSoft',
                                                  headerTitleAlign: 'center'                                                 
                                                  }} />
                                              
