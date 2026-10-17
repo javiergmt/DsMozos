@@ -1,0 +1,1 @@
+Ver 1.0.3 : 24/05/2025: Se agrego la lectura del Punto de Venta, esto permite, especificar los sectores y sacar rubros. Se corrigio para que siempre se vean los comensales Las reservas solo se ven 2Hs antes ( Se corrigio el Sp_Mesas ) Al Abrir una mesa vacia, no se muestra el icono de la cuenta, solo si tiene al menos un item.
