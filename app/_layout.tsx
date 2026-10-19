@@ -13,6 +13,9 @@ import AvisoConexion, { MonitorConexion, colorAviso } from '../components/AvisoC
 import { useCola } from '../servicios/colaComandas';
 import React from "react";
 import { HeaderTitulo, headerTheme } from '../components/HeaderTitulo'
+import { DialogoHost } from '../components/Dialogo'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
 import { configurarOrientacion } from '../constants/Dispositivo'
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -51,7 +54,10 @@ export default function StackLayout()  {
     return (
         <>
         <StatusBar style="light" />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheetModalProvider>
         <MonitorConexion />
+        <DialogoHost />
         <View style={{ flex: 1, backgroundColor: Colors.background }}>
         {/* Franja de aviso arriba de todo; ocupa el margen superior para que el header no lo repita */}
         {conAviso ? (
@@ -87,6 +93,8 @@ export default function StackLayout()  {
             </Stack>
         </SafeAreaInsetsContext.Provider>
         </View>
+        </BottomSheetModalProvider>
+        </GestureHandlerRootView>
         </>
     );
 

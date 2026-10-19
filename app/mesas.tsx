@@ -1,4 +1,4 @@
-import { View, Text,  ScrollView, TouchableOpacity, Pressable, StyleSheet, ActivityIndicator, Alert, RefreshControl, TextInput } from 'react-native'
+import { View, Text,  ScrollView, TouchableOpacity, Pressable, StyleSheet, ActivityIndicator, RefreshControl, TextInput } from 'react-native'
 import React, {  useEffect, useRef, useState } from 'react'
 import { Link, Redirect} from 'expo-router'
 import { mesasType, sectoresType, paramType, ReservasType } from './ApiFront/Types/BDTypes';
@@ -6,8 +6,8 @@ import { getMesas, getPlato_Precio, getReservas, getSectores } from './ApiFront/
 import { useLoginStore } from "../app/store/useLoginStore"
 import Colors from '../constants/Colors';
 import { AbrirMesa, BloquearMesa, ConfCumpReserva, GrabarComensales, LiberarMesa } from './ApiFront/Posts/PostDatos';
-import BottomSheet, { BottomSheetView, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { sheetTheme, sheetStyles, useSnapPoints } from '../constants/SheetTheme';
+import { sheetStyles } from '../constants/SheetTheme';
+import HojaModal from '../components/HojaModal';
 import { useCola, pendientesDeMesa } from '../servicios/colaComandas';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AntDesign, Ionicons } from '@expo/vector-icons';
@@ -101,8 +101,6 @@ const mesas = () => {
   const [mostrarDescMesa, setMostrarDescMesa] = useState(mesasConDesc)
 
   // Control del bottomSheet
-  const sheetRef = useRef<BottomSheet>(null); 
-  const snapPoints = useSnapPoints([45, 70], [320, 420]);
 
   // Comandas pendientes (para marcar las mesas) y estado de la conexion
   const { trabajos, servidorOk } = useCola()
@@ -356,7 +354,6 @@ const [text, onChangeText] = useState('');
 
 useEffect(() => {
 
-  sheetRef.current?.snapToIndex(-1);
   handleDataChange()
   const interval = setInterval(() => {
     handleDataChange()
@@ -525,15 +522,7 @@ return (
     { (isOk && isOcup=='N' && comensalesOk && mozo.idTipoMozo == 4) && <Redirect href="/mesas" /> } 
 
     {/* Pido Comensales */}
-    { (isOk && isOcup=='N'&& !comensalesOk && !tieneReserva) ? (
-    <BottomSheet
-         {...sheetTheme}
-         ref={sheetRef}
-         snapPoints={snapPoints}
-         enablePanDownToClose={true}
-         onClose={() => handleBottomSheet()}
-      >
-      <BottomSheetView style={sheetStyles.contenido}>
+    <HojaModal visible={!!(isOk && isOcup=='N'&& !comensalesOk && !tieneReserva)} onCerrar={() => handleBottomSheet()}>
         <Text style={sheetStyles.titulo}>Comensales</Text>
         <Text style={sheetStyles.subtitulo}>Mesa {mesaSeleccionada}</Text>
 
@@ -562,20 +551,10 @@ return (
           <Ionicons name="checkmark" size={22} color="white" />
           <Text style={styles.sheetBtText}>Confirmar</Text>
         </TouchableOpacity>
-      </BottomSheetView>
-    </BottomSheet>
-    ) : null }
+    </HojaModal>
 
     {/* Tiene Reserva  */}
-    { (isOk && isOcup=='N' && tieneReserva && !comensalesOk) ? (
-    <BottomSheet
-         {...sheetTheme}
-         ref={sheetRef}
-         snapPoints={snapPoints}
-         enablePanDownToClose={true}
-         onClose={() => handleBottomSheet()}
-      >
-      <BottomSheetScrollView contentContainerStyle={sheetStyles.contenido}>
+    <HojaModal scroll visible={!!(isOk && isOcup=='N' && tieneReserva && !comensalesOk)} onCerrar={() => handleBottomSheet()}>
         <Text style={sheetStyles.titulo}>Seleccionar Reserva</Text>
         <Text style={sheetStyles.subtitulo}>Mesa {mesaSeleccionada}</Text>
 
@@ -623,10 +602,7 @@ return (
         <TouchableOpacity style={styles.sheetBtSecundario} onPress={() => handleBottomSheet()} activeOpacity={0.7}>
           <Text style={styles.sheetBtSecText}>Ocupar sin Reserva</Text>
         </TouchableOpacity>
-
-      </BottomSheetScrollView>
-    </BottomSheet>
-    ) : null }
+    </HojaModal>
 
   </View>
   </GestureHandlerRootView>  
@@ -1141,6 +1117,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 14,
     backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: Colors.colorborderubro,
     borderLeftWidth: 4,
     borderLeftColor: Colors.colorcheckbox,
   },

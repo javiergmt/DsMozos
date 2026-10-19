@@ -14,6 +14,7 @@ import { gustosDet, gustosType, mesaDetType, platosType } from '../../../ApiFron
 import { getHoraActual } from '../../../Funciones/deConversion'
 import Colors from '../../../../constants/Colors'
 import InputSpinner from "react-native-input-spinner";
+import FilaGustoUnico from '../../../../components/FilaGustoUnico'
 import FlashMessage from "react-native-flash-message";
 import { showMessage } from "react-native-flash-message";
 
@@ -39,6 +40,12 @@ const selGustos = () => {
   const [mesaGustos, setMesaGustos] = useState( [] as Gustos[]) 
   const [rubrosub, setRubroSub] = useState("")
   console.log('UltRubroenGustos:',rubrosub)
+
+  // Maximo 1: seleccion simple, elegir un gusto reemplaza al anterior
+  const handleGustoUnico = (id:number,descrip:string,idPlatoRel:number) => {
+    setMesaGustos([{idGusto:id,descGusto:descrip,cant:1,idPlatoRel:idPlatoRel}])
+    setCantGustos(1)
+  }
 
   const handleGustosInc = (cantg:number,inc:number, id:number,descrip:string,idPlatoRel:number) => {
     let cant = cantGustos + inc
@@ -205,7 +212,18 @@ const selGustos = () => {
 
        <ScrollView contentContainerStyle={styles.lista}>
 
-          { !grabarGustos && gustos.map((g) => (
+          { !grabarGustos && cantMaxGustos == 1 && gustos.map((g) => (
+            <FilaGustoUnico
+              key={g.idGusto}
+              texto={g.descGusto}
+              seleccionado={mesaGustos.some((m) => m.idGusto == g.idGusto && m.cant > 0)}
+              onPress={() => handleGustoUnico(g.idGusto,g.descGusto,g.idPlatoRel)}
+              style={styles.checkboxContainer}
+              textStyle={styles.text}
+            />
+          ))}
+
+          { !grabarGustos && cantMaxGustos != 1 && gustos.map((g) => (
           <View style={styles.checkboxContainer} key={g.idGusto}>
               <Text style={styles.text} numberOfLines={2}>{g.descGusto}</Text>
               <InputSpinner

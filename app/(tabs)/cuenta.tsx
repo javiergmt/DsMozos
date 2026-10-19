@@ -1,4 +1,5 @@
-import { View, Text, Button, ScrollView, TouchableOpacity,StyleSheet, TextInput, ActivityIndicator, Alert } from 'react-native'
+import { View, Text, Button, ScrollView, TouchableOpacity,StyleSheet, TextInput, ActivityIndicator } from 'react-native'
+import { mostrarDialogo } from '../../components/Dialogo'
 import React, { useEffect, useRef, useState } from 'react'
 import { HeaderMesa, HeaderBotonCerrar } from '../../components/HeaderTitulo'
 import { Redirect, Stack } from 'expo-router'
@@ -15,9 +16,7 @@ import { capitalize, getHoraActual } from '../Funciones/deConversion'
 import FlashMessage from "react-native-flash-message";
 import { showMessage, hideMessage } from "react-native-flash-message";
 import BouncyCheckbox from 'react-native-bouncy-checkbox'
-import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet'
-import { sheetTheme } from '../../constants/SheetTheme'
-import InputSpinner from 'react-native-input-spinner'
+import HojaGustos from '../../components/HojaGustos'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { encolarYEnviar } from '../../servicios/colaComandas'
 import { showToast } from '../Funciones/deInfo'
@@ -70,8 +69,7 @@ const cuenta = () => {
   const [comandaPlatos, setComandaPlatos] = useState( [] as comandaPlatos[])
   const [cantGustos, setCantGustos] = useState(0)
   const [cantMaxGustos, setCantMaxGustos] = useState(0)
-  const sheetRef = useRef<BottomSheet>(null);
-  const snapPoints = ['80%', '80%'];
+  const cuentaCargada = useRef(false)
   /*
   const [fondo, setFondo] = useState(false)
 
@@ -154,8 +152,8 @@ const cuenta = () => {
           pcioUnit: m.pcioUnit,
           importe: m.importe,
           obs: m.obs,
-          idTamanio: m.idTamanio,
-          tamanio: m.descTam,
+          idTamanio: m.idTamanio ?? 1,
+          tamanio: m.descTam ?? '',
           procesado: true,
           hora: getHoraActual(),
           idMozo: mozo.idMozo,
@@ -175,7 +173,7 @@ const cuenta = () => {
         detalle.push(det)
         if ( (m.idTipoConsumo != 'CB') ) {
           let comandaGustos = [] as comandaGustos[]
-          m.gustos.forEach((g) => {
+          (m.gustos ?? []).forEach((g) => {
             comandaGustos.push(
               {descripcion : g.descripcion}
             )
@@ -186,20 +184,20 @@ const cuenta = () => {
           {                            
             cant: m.cant,
             idTipoConsumo: m.idTipoConsumo,
-            tamanio: m.descTam,
+            tamanio: m.descTam ?? '',
             obs: m.obs,
             descripcion: m.descripcion,
-            idSectorExped: m.idSectorExped, 
+            idSectorExped: m.idSectorExped?? 0, 
             impCentralizada: m.impCentralizada,    
             esEntrada: m.esEntrada,          
             gustos: comandaGustos.length > 0 ? comandaGustos : []                
           })
         } else {
           // Agrego los platos de la seccion de combos a la comanda
-          m.combos.forEach((c) => {
+          (m.combos ?? []).forEach((c) => {
             
             let comandaGustos = [] as comandaGustos[]
-            c.combosGustos.forEach((g) => {
+            (c.combosGustos ?? []).forEach((g) => {
               if (g.idPlato == c.idPlato) {
               comandaGustos.push(
                 {descripcion : g.descripcion}
@@ -214,8 +212,8 @@ const cuenta = () => {
                 tamanio: c.tamanio,
                 obs: c.obs,
                 descripcion: c.descripcion,
-                idSectorExped: c.idSectorExped, 
-                impCentralizada: c.impCentralizada,    
+                idSectorExped: c.idSectorExped ?? 0, 
+                impCentralizada: c.impCentralizada ?? 0,    
                 esEntrada: false,          
                 gustos: comandaGustos.length > 0 ? comandaGustos : []                
               }) 
@@ -248,11 +246,11 @@ const cuenta = () => {
                                                detalle, comanda: comandaImprimir, alFinal })
       if (typeof resultado == 'object') {
         // Error de la API (no de red): no se grabo nada; el mozo sigue en la cuenta para reintentar
-        Alert.alert('No se pudo grabar la comanda', `${resultado.error}\n\nRevisá la cuenta y volvé a comandar.`)
+        mostrarDialogo('No se pudo grabar la comanda', `${resultado.error}\n\nRevisá la cuenta y volvé a comandar.`)
         return
       }
       if (resultado == 'pendiente') {
-        Alert.alert('Sin conexión', `La comanda de la mesa ${ultMesa.nroMesa} quedó guardada en el teléfono y se va a enviar sola cuando vuelva la conexión. La mesa queda tomada hasta entonces.`)
+        mostrarDialogo('Sin conexión', `La comanda de la mesa ${ultMesa.nroMesa} quedó guardada en el teléfono y se va a enviar sola cuando vuelva la conexión. La mesa queda tomada hasta entonces.`)
       } else {
         showToast('Comanda enviada')
       }
@@ -300,7 +298,7 @@ const cuenta = () => {
        
       setItem(it)
       console.log('Traigo Item:',it)
-      setComboDet(null)
+      setComboDet([])
       const load = async () => {
          const result = await getComboSec(it.idPlato,urlBase,BaseDatos);
          return result
@@ -423,7 +421,7 @@ const cuenta = () => {
           
           if (csel+1 > cantMax && isChecked) {
             setIsOk(false)
-            Alert.alert('Atención','No puede seleccionar más de '+cantMax+' platos')
+            mostrarDialogo('Atención','No puede seleccionar más de '+cantMax+' platos')
             
           } else {
             // Si es consumo variable cargo los gustos
@@ -439,6 +437,15 @@ const cuenta = () => {
   }
 
   // Control de los gustos de un Plato seleccionado
+  // Maximo 1: seleccion simple, elegir un gusto reemplaza al anterior del mismo plato/seccion
+  const handleGustoUnico = (id:number,descrip:string,idPlatoRel:number) => {
+        setCombosGustos([
+          ...combosGustos.filter((g) => !(g.idSeccion == ultSeccion && g.idPlato == ultPlato)),
+          {idSeccion:ultSeccion,idPlato:ultPlato,idGusto:id,descGusto:descrip,cant:1,idPlatoRel:idPlatoRel}
+        ])
+        setCantGustos(1)
+  }
+
   const handleGustosInc = (cantg:number,inc:number, id:number,descrip:string,idPlatoRel:number) => {
         let cant = cantGustos + inc
         let noEsta = true       
@@ -454,21 +461,13 @@ const cuenta = () => {
         }
           setCantGustos(cant)
           if (cant > cantMaxGustos) {
-           Alert.alert('Atención','No puede seleccionar más de '+cantMaxGustos.toString()+' Variedades')
+           mostrarDialogo('Atención','No puede seleccionar más de '+cantMaxGustos.toString()+' Variedades')
         } 
           
         //console.log('MesaGustos:',mesaGustos)
   }
   
-    const handleBottomSheet = () => { 
-      //console.log('Comensales Grabados:',res)
-      if (cantGustos == 0 ) {
-        sheetRef.current?.expand()
-      }
-  }
-  
   const handleConfirmarGustos = () => {
-      sheetRef.current?.close()
       setCantGustos(0)
       setIsGustos(false)
       
@@ -527,7 +526,7 @@ const cuenta = () => {
                     comanda: true,
                     descripcion: d.descripcion,
                     idSectorExped: d.idSectorExped, 
-                    impCentralizada: d.impCentralizada,              
+                    impCentralizada: d.impCentralizada ?? 0,              
                     combosGustos: detgustos.length > 0 ? detgustos : []                
                   })   
                   detgustos = [] // Reinicio los gustos para la proxima iteracion
@@ -539,8 +538,8 @@ const cuenta = () => {
                       tamanio: d.tamanio,
                       obs: '',
                       descripcion: d.descripcion,
-                      idSectorExped: d.idSectorExped, 
-                      impCentralizada: d.impCentralizada,    
+                      idSectorExped: d.idSectorExped ?? 0, 
+                      impCentralizada: d.impCentralizada ?? 0,    
                       esEntrada: false,          
                       gustos: comandaGustos.length > 0 ? comandaGustos : []                
                     })           
@@ -585,17 +584,40 @@ const cuenta = () => {
     }
     detalle.push(det)
     //console.log('Detalle:',detalle[0])
-    const res2 = await BorrarRenglon(ultMesa.nroMesa,idDetalle,1,"CB",urlBase,BaseDatos)
+    // Un mismo plato/seccion no puede ir dos veces en el combo (clave duplicada)
+    const vistos = new Set<string>()
+    det.combos = detcombo.filter((c) => {
+      const clave = `${c.idSeccion}-${c.idPlato}`
+      if (vistos.has(clave)) return false
+      vistos.add(clave)
+      return true
+    })
+
+    // Si no se pudo borrar el renglon original, no se vuelve a insertar el mismo idDetalle
+    const res2 = await BorrarRenglon(ultMesa.nroMesa,idDetalle,mDet[0].idPlato,"CB",urlBase,BaseDatos,mDet[0].cant)
+    if (!res2) {
+      mostrarDialogo('No se pudo modificar el combo','No se pudo borrar el renglon anterior. Intente nuevamente.')
+      return
+    }
     const res1 = await AgregarDetalleMulti_Noimp(detalle,urlBase,BaseDatos)    
 
     setSelectCombo(false)
    
   } 
    
+  // Al cambiar de mesa se vuelve a permitir la carga inicial de la cuenta
+  useEffect(() => {
+    cuentaCargada.current = false
+  }, [ultMesa.nroMesa])
+
   useEffect(() => {
     
-    if (mesaDet.length == 0) {
-      // Es la primera vez que se carga la cuenta
+    console.log('ultDetalle:', ultDetalle)  
+    console.log('origDet:', origDet)
+    if (mesaDet.length == 0 && !cuentaCargada.current) {
+      // Es la primera vez que se carga la cuenta (una sola vez: si se borran todos los
+      // renglones, no se vuelve a pisar mesaDet con el resultado del servidor)
+      cuentaCargada.current = true
       console.log('Cuenta mesaDet',mesaDet)
       // Traigo la cuenta de la mesa de En_mesadet ( puede ser vacia )
       const cuenta = traerCuenta(urlBase,BaseDatos)
@@ -606,7 +628,6 @@ const cuenta = () => {
           total += m.importe
         })
         setTotMesa(total)
-
         setMesaDet(res)
         setCuenta(res)       
         setUltDetalle(result)
@@ -718,7 +739,13 @@ const cuenta = () => {
   }
 
   // Boton de la barra de herramientas
-  const BotonPie = ({icono, label, onPress, color = 'white', deshabilitado = false}) => (
+  const BotonPie = ({icono, label, onPress, color = 'white', deshabilitado = false}: {
+    icono: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    onPress: () => void;
+    color?: React.ComponentProps<typeof Ionicons>['color'];
+    deshabilitado?: boolean;
+  }) => (
     <TouchableOpacity
       style={[styles.pieBoton, deshabilitado ? styles.pieBotonDeshab : null]}
       onPress={onPress}
@@ -929,59 +956,16 @@ const cuenta = () => {
         </View>
       ) : null }
 
-      {isGustos && selectCombo ? (
-
-      <BottomSheet
-            ref={sheetRef}
-            snapPoints={snapPoints}
-            enablePanDownToClose={false}
-            onClose={() => handleBottomSheet()}
-            {...sheetTheme}
-          >
-
-          <View style={{ flex: 1 }}>
-
-          <View style={styles.sheetHeader}>
-              <Text style={styles.valTextSel}>Seleccionar Gustos</Text>
-              <View style={styles.sheetBarra}>
-                <View style={[styles.contador, cantGustos > cantMaxGustos ? styles.contadorError : null]}>
-                  <Text style={styles.contadorText}>{cantGustos} / {cantMaxGustos}</Text>
-                </View>
-                { cantGustos > 0 && cantGustos <= cantMaxGustos ? (
-                <TouchableOpacity style={styles.btConfirmar} onPress={handleConfirmarGustos} activeOpacity={0.7}>
-                  <Ionicons name="checkmark" size={22} color="white" />
-                  <Text style={styles.btText}>Confirmar Gustos</Text>
-                </TouchableOpacity>
-                ) : (
-                <View style={[styles.btConfirmar, styles.btDeshabilitado]}>
-                  <Text style={styles.btText}>Confirmar Gustos</Text>
-                </View>
-                )}
-              </View>
-          </View>
-
-          <BottomSheetScrollView contentContainerStyle={styles.containerScrollvSheet}>
-          { gustos.map((g) =>
-            <View style={styles.gustoContainer} key={g.idGusto}>
-                <Text style={styles.gustoText} numberOfLines={2}>{g.descGusto}</Text>
-                <InputSpinner
-                  value={0}
-                  style={styles.spinner}
-                  color={Colors.colorcheckbox}
-                  onIncrease={(value) => { handleGustosInc(value as number,1,g.idGusto,g.descGusto,g.idPlatoRel)
-                  }}
-                  onDecrease={(value) => { handleGustosInc(value as number,-1,g.idGusto,g.descGusto,g.idPlatoRel)
-                  }}
-                />
-            </View>
-          )}
-          </BottomSheetScrollView>
-
-          </View>
-
-        </BottomSheet>
-
-        ) : null }
+      <HojaGustos
+        visible={isGustos && selectCombo}
+        gustos={gustos}
+        cantGustos={cantGustos}
+        cantMax={cantMaxGustos}
+        esSeleccionado={(id) => combosGustos.some((c) => c.idGusto == id && c.idSeccion == ultSeccion && c.idPlato == ultPlato && c.cant > 0)}
+        onUnico={(g) => handleGustoUnico(g.idGusto,g.descGusto,g.idPlatoRel)}
+        onInc={(valor,inc,g) => handleGustosInc(valor,inc,g.idGusto,g.descGusto,g.idPlatoRel)}
+        onConfirmar={handleConfirmarGustos}
+      />
 
       { comandar ? <Redirect href={`/mesas`}  /> : null }
 
@@ -1363,70 +1347,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: 'white',
     textDecorationLine: 'none',
-  },
-
-  // --- BottomSheet gustos ---
-  sheetHeader: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 10,
-  },
-  sheetBarra: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  valTextSel: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: Colors.colorfondoBoton,
-    textAlign: "center",
-  },
-  contador: {
-    height: 48,
-    minWidth: 64,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.colorFondoCuenta,
-    borderWidth: 1.5,
-    borderColor: Colors.colorcheckbox,
-  },
-  contadorError: {
-    borderColor: Colors.colorBackBoton,
-  },
-  contadorText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  containerScrollvSheet: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-    gap: 8,
-  },
-  gustoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    paddingLeft: 14,
-    paddingRight: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.colorborderubro,
-  },
-  gustoText: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: Colors.colorfondoBoton,
-  },
-  spinner: {
-    width: 140,
-    backgroundColor: 'white',
-    borderRadius: 10,
   },
 });
 

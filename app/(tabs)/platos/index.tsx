@@ -14,7 +14,7 @@ import Imagen from '../../../assets/image';
 import { EliminarMesa, LiberarMesa } from '../../ApiFront/Posts/PostDatos'
 
 const retImagen = (iconoApp:string) => {
-  const imagen = {
+  const imagen: Record<string, any> = {
     'sandwich': Imagen.sandwich,
     'cafe': Imagen.cafe,
     'cerveza': Imagen.cerveza,

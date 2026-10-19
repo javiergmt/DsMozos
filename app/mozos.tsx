@@ -1,4 +1,4 @@
-import { View, Text, Button, SafeAreaView, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native'
+import { View, Text, Button, SafeAreaView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { useLoginStore } from './store/useLoginStore';
 import { GetMozoPass, getNoticias, getParamMozos, getRubrosSub } from './ApiFront/Gets/GetDatos';

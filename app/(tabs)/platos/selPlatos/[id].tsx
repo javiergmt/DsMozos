@@ -13,8 +13,8 @@ import { capitalize, getHoraActual, hyphenatedText, vclToCssRgb } from '../../..
 import { Ionicons } from '@expo/vector-icons';
 import { showToast } from '../../../Funciones/deInfo'
 import Colors from '../../../../constants/Colors'
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
-import { sheetTheme, useSnapPoints } from '../../../../constants/SheetTheme'
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import HojaModal from '../../../../components/HojaModal'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context'
 import FlashMessage from "react-native-flash-message";
@@ -67,13 +67,10 @@ const selPlatos = () => {
   const [esEntSel, setEsEntSel] = useState(false)
 
    // Control del bottomSheet
-  const sheetRef = useRef<BottomSheet>(null); 
-  const snapPoints = useSnapPoints([60, 50], [400, 380]);
   const [verPlatos, setVerPlatos ] = useState(1) // 0: Renglones, 1: Botones
 
   const AgregaModifItem = (item:platosType) => {
     // Agrego el item a la mesa
-    sheetRef.current?.close()
     let estaEnMesa = false
    
     mesaDet.forEach((m) => {
@@ -127,7 +124,7 @@ const selPlatos = () => {
     setCantItem(1)
   }
 
-  const handleCantidad = (cant) => {
+  const handleCantidad = (cant: number) => {
     if (cantItem + cant >= 1) {
       setCantItem(cantItem + cant) 
     } 
@@ -135,7 +132,6 @@ const selPlatos = () => {
   }
 
   const handleCancelar = () => {
-    sheetRef.current?.close()
     setCantItem(1)
     setPedirCant(false)
   }
@@ -193,7 +189,6 @@ const selPlatos = () => {
   }
 
     useEffect(() => {
-      sheetRef.current?.snapToIndex(-1);
       const load = async () => {
         //console.log('Busco Platos:',tipo,cadena,rub,sub,urlBase)
         setCargando(true)
@@ -277,18 +272,8 @@ const selPlatos = () => {
         </View>
         ) : null }
 
-        { pedirCant ? (
-        <BottomSheet
-        ref={sheetRef}
-        snapPoints={snapPoints}
-        enablePanDownToClose={true}
-
-        //onClose={() => AgregaModifItem(itemSel)}
-        onClose={() => handleCancelar()}
-        {...sheetTheme}
-          >
-          <BottomSheetView style={styles.sheet}>
-          <Text style={styles.bottomText} numberOfLines={2}>{itemSel.descCorta}</Text>
+        <HojaModal visible={pedirCant} onCerrar={() => handleCancelar()}>
+          <Text style={styles.bottomText} numberOfLines={2}>{itemSel?.descCorta}</Text>
 
           {/* Cantidad */}
           <View style={styles.stepper}>
@@ -304,7 +289,7 @@ const selPlatos = () => {
           {/* Observaciones */}
           <View style={styles.inputContainer}>
             <Ionicons name="create-outline" size={20} color={Colors.backbotones} />
-            <TextInput
+            <BottomSheetTextInput
               style={styles.input}
               onChangeText={onChangeText}
               value={text}
@@ -331,15 +316,12 @@ const selPlatos = () => {
             <TouchableOpacity style={styles.btCancelar} onPress={() => handleCancelar()} activeOpacity={0.7}>
               <Text style={styles.btText}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.btConfirmar} onPress={() => AgregaModifItem(itemSel)} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.btConfirmar} onPress={() => { if (itemSel) AgregaModifItem(itemSel) }} activeOpacity={0.7}>
               <Ionicons name="checkmark" size={22} color="white" />
               <Text style={styles.btText}>Confirmar</Text>
             </TouchableOpacity>
           </View>
-
-          </BottomSheetView>
-        </BottomSheet>
-        ) : null }
+        </HojaModal>
 
         <FlashMessage position="top" />
       </GestureHandlerRootView>
@@ -527,6 +509,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: Colors.colorborderubro,
   },
   input: {
     flex: 1,

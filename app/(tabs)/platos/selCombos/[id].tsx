@@ -1,5 +1,6 @@
 // Se arman y se dan a seleccionar los Combos con sus secciones
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
+import { mostrarDialogo } from '../../../../components/Dialogo'
 import React, { useEffect, useRef, useState } from 'react'
 import { HeaderMesa } from '../../../../components/HeaderTitulo'
 import { useLoginStore } from '../../../store/useLoginStore'
@@ -10,12 +11,10 @@ import Colors from '../../../../constants/Colors'
 import BouncyCheckbox from "react-native-bouncy-checkbox";
 import { getFechaHoraActual, getHoraActual } from '../../../Funciones/deConversion'
 import { showToast } from '../../../Funciones/deInfo'
-import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet'
-import { sheetTheme } from '../../../../constants/SheetTheme'
+import HojaGustos from '../../../../components/HojaGustos'
 import { Redirect, Stack, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import InputSpinner from "react-native-input-spinner";
 import { tapHandlerName } from 'react-native-gesture-handler/lib/typescript/handlers/TapGestureHandler'
 import FlashMessage from "react-native-flash-message";
 import { showMessage, hideMessage } from "react-native-flash-message";
@@ -51,8 +50,6 @@ const selCombos = () => {
   const [cantMaxGustos, setCantMaxGustos] = useState(0)
   const [autocompletar, setAutocompletar] = useState(false)
   const [unicoPlato, setUnicoPlato] = useState('')
-  const sheetRef = useRef<BottomSheet>(null);
-  const snapPoints = ['80%', '80%'];
   // SafeArea
   const { bottom, top, right, left } = useSafeAreaInsets();
 
@@ -201,6 +198,15 @@ const selCombos = () => {
 
   }
 
+  // Maximo 1: seleccion simple, elegir un gusto reemplaza al anterior del mismo plato/seccion
+  const handleGustoUnico = (id:number,descrip:string,idPlatoRel:number) => {
+      setCombosGustos([
+        ...combosGustos.filter((g) => !(g.idSeccion == ultSeccion && g.idPlato == ultPlato)),
+        {idSeccion:ultSeccion,idPlato:ultPlato,idGusto:id,descGusto:descrip,cant:1,idPlatoRel:idPlatoRel}
+      ])
+      setCantGustos(1)
+  }
+
   // Control de los gustos de un Plato seleccionado
   const handleGustosInc = (cantg:number,inc:number, id:number,descrip:string,idPlatoRel:number) => {
       let cant = cantGustos + inc
@@ -217,7 +223,7 @@ const selCombos = () => {
       }
         setCantGustos(cant)
         if (cant > cantMaxGustos) {
-         Alert.alert('Atención','No puede seleccionar más de '+cantMaxGustos.toString()+' Variedades')
+         mostrarDialogo('Atención','No puede seleccionar más de '+cantMaxGustos.toString()+' Variedades')
       } 
         
       //console.log('MesaGustos:',mesaGustos)
@@ -237,7 +243,7 @@ const selCombos = () => {
       const csel = cd.filter (d => d.idSeccion == idSeccion && d.selected == true).length 
       if (csel+1 > cantMax && isChecked) {
         setIsOk(false)
-        Alert.alert('Atención','No puede seleccionar más de '+cantMax+' platos')
+        mostrarDialogo('Atención','No puede seleccionar más de '+cantMax+' platos')
       } else {
         setIsOk(true)
         cd.filter (d => d.idSeccion == idSeccion).forEach((d) => {
@@ -279,7 +285,7 @@ const selCombos = () => {
 
     if (cant + inc > cantMax ) {
       setIsOk(false)
-      Alert.alert('Atención','No puede seleccionar más de '+cantMax+' platos')      
+      mostrarDialogo('Atención','No puede seleccionar más de '+cantMax+' platos')      
     } else {
       comboDet.forEach((cd) => {      
         cd.filter (d => d.idSeccion == idSeccion).forEach((d) => {
@@ -301,15 +307,7 @@ const selCombos = () => {
     }
   } 
 
-  const handleBottomSheet = () => { 
-    //console.log('Comensales Grabados:',res)
-    if (cantGustos == 0 ) {
-      sheetRef.current?.expand()
-    }
-  }
-
   const handleConfirmarGustos = () => {
-    sheetRef.current?.close()
     setCantGustos(0)
     setIsGustos(false)
     
@@ -462,59 +460,16 @@ const selCombos = () => {
 
 
 
-   {isGustos ? (
-
-   <BottomSheet
-         ref={sheetRef}
-         snapPoints={snapPoints}
-         enablePanDownToClose={false}
-         onClose={() => handleBottomSheet()}
-         {...sheetTheme}
-      >
-
-      <View style={{ flex: 1 }}>
-
-      <View style={styles.sheetHeader}>
-          <Text style={styles.valTextSel}>Seleccionar Gustos</Text>
-          <View style={styles.sheetBarra}>
-            <View style={[styles.contador, cantGustos > cantMaxGustos ? styles.contadorError : null]}>
-              <Text style={styles.contadorText}>{cantGustos} / {cantMaxGustos}</Text>
-            </View>
-            { cantGustos > 0 && cantGustos <= cantMaxGustos ? (
-            <TouchableOpacity style={styles.btConfirmar} onPress={handleConfirmarGustos} activeOpacity={0.7}>
-              <Ionicons name="checkmark" size={22} color="white" />
-              <Text style={styles.btText}>Confirmar Gustos</Text>
-            </TouchableOpacity>
-            ) : (
-            <View style={[styles.btConfirmar, styles.btDeshabilitado]}>
-              <Text style={styles.btText}>Confirmar Gustos</Text>
-            </View>
-            )}
-          </View>
-      </View>
-
-      <BottomSheetScrollView contentContainerStyle={styles.containerScrollvSheet}>
-      { gustos.map((g) =>
-        <View style={styles.gustoContainer} key={g.idGusto}>
-            <Text style={styles.gustoText} numberOfLines={2}>{g.descGusto}</Text>
-            <InputSpinner
-              value={0}
-              style={styles.spinner}
-              color={Colors.colorcheckbox}
-              onIncrease={(value) => { handleGustosInc(value as number,1,g.idGusto,g.descGusto,g.idPlatoRel)
-              }}
-              onDecrease={(value) => { handleGustosInc(value as number,-1,g.idGusto,g.descGusto,g.idPlatoRel)
-              }}
-            />
-        </View>
-      )}
-      </BottomSheetScrollView>
-
-      </View>
-
-    </BottomSheet>
-
-    ) : null }
+    <HojaGustos
+      visible={isGustos}
+      gustos={gustos}
+      cantGustos={cantGustos}
+      cantMax={cantMaxGustos}
+      esSeleccionado={(id) => combosGustos.some((c) => c.idGusto == id && c.idSeccion == ultSeccion && c.idPlato == ultPlato && c.cant > 0)}
+      onUnico={(g) => handleGustoUnico(g.idGusto,g.descGusto,g.idPlatoRel)}
+      onInc={(valor,inc,g) => handleGustosInc(valor,inc,g.idGusto,g.descGusto,g.idPlatoRel)}
+      onConfirmar={handleConfirmarGustos}
+    />
 
     { salir ? <Redirect href={`platos/${ultRubSub}`} /> : null }
 
@@ -689,65 +644,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
     color: 'white',
-  },
-
-  // --- BottomSheet gustos ---
-  sheetHeader: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 10,
-  },
-  sheetBarra: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  valTextSel: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: Colors.colorfondoBoton,
-    textAlign: "center",
-  },
-  contador: {
-    height: 48,
-    minWidth: 64,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.colorFondoCuenta,
-    borderWidth: 1.5,
-    borderColor: Colors.colorcheckbox,
-  },
-  contadorError: {
-    borderColor: Colors.colorBackBoton,
-  },
-  contadorText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  containerScrollvSheet: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-    gap: 8,
-  },
-  gustoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    paddingLeft: 14,
-    paddingRight: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.colorborderubro,
-  },
-  gustoText: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: Colors.colorfondoBoton,
   },
 });
 

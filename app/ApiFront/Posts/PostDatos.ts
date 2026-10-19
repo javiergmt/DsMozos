@@ -2,7 +2,7 @@
 import { mozoType,mesaDetPost, ReservasType, comanda, datosApp } from "../Types/BDTypes"
 import { modificarComandaPost, modificarPlatoPost } from "./ConvDatos"
 import { showToast } from '../../Funciones/deInfo'
-import { Alert } from "react-native"
+import { mostrarDialogo } from '../../../components/Dialogo'
 
 export default function PostDatos(){
     return null;
@@ -215,7 +215,7 @@ const respuesta = (mens:string) => {
     console.log('Respuesta',mens)
     if (mens === 'commit') showToast('Datos grabados')
     else
-    Alert.alert('ATENCION !! Hubo un error, revise las comandas y que los datos se hayan grabado!!',mens)
+    mostrarDialogo('ATENCION !! Hubo un error, revise las comandas y que los datos se hayan grabado!!',mens)
 }
 
 export const AgregarDetalleMulti_Noimp = async (detalles: object[], url:string,base:string) => {
@@ -264,15 +264,17 @@ export const AgregarDetalleMulti = (detalles: object[], url:string,base:string) 
   }
   
 
-export const BorrarRenglon = (nroMesa: number,idDetalle:number,idPlato:number,idTipoConsumo:string, url:string,base:string) => {
+// cant debe ser igual a la cantidad guardada en el renglon: el SP solo borra la fila si coincide
+// (si no, solo resta cantidad). Devuelve true si el servidor confirmo el borrado.
+export const BorrarRenglon = async (nroMesa: number,idDetalle:number,idPlato:number,idTipoConsumo:string, url:string,base:string,cant:number = 0): Promise<boolean> => {
     try {
-        return fetch(url+"mesa_renglon_borrar/",
+        const response = await fetch(url+"mesa_renglon_borrar/",
             requestOptionPost({
                 nromesa: nroMesa,
                 idDetalle: idDetalle,
                 idPlato: idPlato,
                 idTipoConsumo: idTipoConsumo,
-                cant: 0,
+                cant: cant,
                 descripcion: "",
                 pcioUnit: 0,
                 obs: "",
@@ -290,15 +292,16 @@ export const BorrarRenglon = (nroMesa: number,idDetalle:number,idPlato:number,id
                 comentario: "",
                 puntoDeVenta: 0
             }, 'DELETE',base))
-        // .then(response => response.json())
-        // .then(response => console.log("RESPONSE DELETE ", response))
-        // .catch(error => console.log("ERROR DELETE MESA:", error))
+        const data = await response.json()
+        console.log("RESPONSE DELETE ", data)
+        return data?.res === 'OK'
     } catch (error) {
         console.log(error)
+        return false
     }
 }
 
-export const Comandar = async (detalle:comanda ,url:string, base:string) => {    
+export const Comandar = async (detalle:comanda ,url:string, base:string) => {
     console.log("COMANDA: ", detalle)
     const res = await fetch(url+"comandar/",
         requestOptionPost({            
