@@ -80,15 +80,17 @@ const selTam = () => {
     setDescPlato(it.descripcion)
     
     const load = async () => {
-      const result = await getModif(it.idPlato,ultSector,urlBase,BaseDatos);
+      let result = await getModif(it.idPlato,ultSector,urlBase,BaseDatos);
       if (result.length == 0) {
-        const result = await getModif(it.idPlato,0,urlBase,BaseDatos);
-        setModif(result);
-      } else {
-        setModif(result);
+        result = await getModif(it.idPlato,0,urlBase,BaseDatos);
       }
-      
-      console.log('Traigo modif:',sec, result)
+      const hora = getHoraActual()
+      const conPrecios = await Promise.all(result.map(async (m) => {
+        const precios = await getPlato_Precio(it.idPlato,m.idTamanio,ultMesa.idSector,hora,urlBase,BaseDatos)
+        return {...m, pcioUnit: precios[0]?.pcioUnit ?? 0}
+      }))
+      setModif(conPrecios);
+      console.log('Traigo modif:',sec, conPrecios)
     };
     load();
   
@@ -118,6 +120,7 @@ const selTam = () => {
               <Ionicons name="resize" size={18} color="white" />
             </View>
             <Text style={styles.modif}>{m.descTam}</Text>
+            <Text style={styles.precio}>${Number(m.pcioUnit ?? 0).toFixed(2)}</Text>
             <Ionicons name="chevron-forward" size={22} color={Colors.colorazulboton} />
           </TouchableOpacity>
              ))}
@@ -183,6 +186,11 @@ modif: {
   fontSize: 18,
   fontWeight: '500',
   color: 'white',
+},
+precio: {
+  fontSize: 15,
+  fontWeight: 'bold',
+  color: Colors.colorazulboton,
 },
 })
 

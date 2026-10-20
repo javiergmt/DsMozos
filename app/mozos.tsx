@@ -15,7 +15,7 @@ import FlashMessage from "react-native-flash-message"
 import { showMessage, hideMessage } from "react-native-flash-message";
 
 const mozos = () => {
-  const [pass,setPass] = useState([]);
+  const [pass,setPass] = useState<number[]>([]);
   const [isLogin, setIsLogin] = useState(false)
   const [isError, setIsError] = useState(false)
   const [parametros, setParametros] = useState<any[]>([])
@@ -42,7 +42,7 @@ const mozos = () => {
     setMsgBusqueda('')
     const res = await buscarServidor(deconvPort(urlBase) || '1234', BaseDatos, urlBase ? deconvUrl(urlBase) : '', setProbadas)
     setBuscando(false)
-    if (res.ok) {
+    if (res.ok && res.url) {
       // Se graba igual que en Configuracion (clave 'url'). Al cambiar la URL,
       // el useEffect de [urlBase] vuelve a cargar parametros y rubros.
       await SecureStore.setItemAsync('url', res.url)

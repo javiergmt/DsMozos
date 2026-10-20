@@ -13,8 +13,8 @@ import { Redirect, Stack, useLocalSearchParams } from 'expo-router'
 import { gustosDet, gustosType, mesaDetType, platosType } from '../../../ApiFront/Types/BDTypes'
 import { getHoraActual } from '../../../Funciones/deConversion'
 import Colors from '../../../../constants/Colors'
-import InputSpinner from "react-native-input-spinner";
 import FilaGustoUnico from '../../../../components/FilaGustoUnico'
+import SelectorCantidad from '../../../../components/SelectorCantidad'
 import FlashMessage from "react-native-flash-message";
 import { showMessage } from "react-native-flash-message";
 
@@ -47,29 +47,18 @@ const selGustos = () => {
     setCantGustos(1)
   }
 
-  const handleGustosInc = (cantg:number,inc:number, id:number,descrip:string,idPlatoRel:number) => {
-    let cant = cantGustos + inc
-    let noEsta = true       
-    mesaGustos.forEach((m) => {
-        if (m.idGusto == id) {
-          m.cant = cantg
-          noEsta = false
-        }
+  const handleGustosInc = (cantidad:number, id:number, descrip:string, idPlatoRel:number) => {
+    const anterior = mesaGustos.find((m) => m.idGusto == id)?.cant ?? 0
+    const total = cantGustos + cantidad - anterior
+    if (total > cantMaxGustos) return
+
+    setMesaGustos((actuales) => {
+      const otros = actuales.filter((m) => m.idGusto != id)
+      return cantidad > 0
+        ? [...otros,{idGusto:id,descGusto:descrip,cant:cantidad,idPlatoRel:idPlatoRel}]
+        : otros
     })
-    if (noEsta) {
-      setMesaGustos([...mesaGustos,{idGusto:id,descGusto:descrip,cant:cantg,idPlatoRel:idPlatoRel}])
-    }
-      setCantGustos(cant)
-      if (cant > cantMaxGustos) {
-       //Alert.alert('Atención','No puede seleccionar más de '+cantMaxGustos.toString()+' Variedades')
-       showMessage({
-              message: "ATENCION !!",
-              description: "No puede seleccionar más de "+cantMaxGustos.toString()+" Variedades",
-              type: "danger",
-              });
-    } 
-      
-    //console.log('MesaGustos:',mesaGustos)
+    setCantGustos(total)
   }
 
  const handleConfirmar = async () => {
@@ -226,15 +215,10 @@ const selGustos = () => {
           { !grabarGustos && cantMaxGustos != 1 && gustos.map((g) => (
           <View style={styles.checkboxContainer} key={g.idGusto}>
               <Text style={styles.text} numberOfLines={2}>{g.descGusto}</Text>
-              <InputSpinner
-                value={0}
-                style={styles.spinner}
-                color={Colors.colorcheckbox}
-                skin ="clean"
-                onIncrease={(value) => { handleGustosInc(value as number,1,g.idGusto,g.descGusto,g.idPlatoRel)
-                }}
-                onDecrease={(value) => { handleGustosInc(value as number,-1,g.idGusto,g.descGusto,g.idPlatoRel)
-                }}
+              <SelectorCantidad
+                value={mesaGustos.find((m) => m.idGusto == g.idGusto)?.cant ?? 0}
+                disableIncrease={cantGustos >= cantMaxGustos}
+                onChange={(value) => handleGustosInc(value,g.idGusto,g.descGusto,g.idPlatoRel)}
               />
           </View>
          ))}
@@ -338,11 +322,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "bold",
     color: 'white',
-	},
-	spinner: {
-		width: 140,
-    backgroundColor: 'white',
-    borderRadius: 10,
 	},
 })
 

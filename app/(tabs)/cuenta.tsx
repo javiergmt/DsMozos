@@ -447,24 +447,18 @@ const cuenta = () => {
   }
 
   const handleGustosInc = (cantg:number,inc:number, id:number,descrip:string,idPlatoRel:number) => {
-        let cant = cantGustos + inc
-        let noEsta = true       
-        
-        combosGustos.forEach((m) => {
-          if (m.idGusto == id) {
-            m.cant = 1
-            noEsta = false
-          }
-         })
-        if (noEsta) {
-            setCombosGustos([...combosGustos,{idSeccion:ultSeccion,idPlato:ultPlato,idGusto:id,descGusto:descrip,cant:1,idPlatoRel:idPlatoRel}])
-        }
-          setCantGustos(cant)
-          if (cant > cantMaxGustos) {
-           mostrarDialogo('Atención','No puede seleccionar más de '+cantMaxGustos.toString()+' Variedades')
-        } 
-          
-        //console.log('MesaGustos:',mesaGustos)
+        const cant = cantGustos + inc
+        if (cant > cantMaxGustos) return
+
+        setCombosGustos((actuales) => {
+          const otros = actuales.filter((g) =>
+            !(g.idGusto == id && g.idSeccion == ultSeccion && g.idPlato == ultPlato)
+          )
+          return cantg > 0
+            ? [...otros,{idSeccion:ultSeccion,idPlato:ultPlato,idGusto:id,descGusto:descrip,cant:cantg,idPlatoRel:idPlatoRel}]
+            : otros
+        })
+        setCantGustos(cant)
   }
   
   const handleConfirmarGustos = () => {
@@ -703,6 +697,7 @@ const cuenta = () => {
             </View>
           ) : null }
         </View>
+        <Text style={styles.itemPrecio}>${Number(c.importe ?? 0).toFixed(2)}</Text>
       </TouchableOpacity>
     )
   }
@@ -725,7 +720,9 @@ const cuenta = () => {
             {esCombo ? capitalize(c.descripcion)+" ("+c.idDetalle+")" : capitalize(c.descripcion)}
           </Text>
           { c.detalles ? <Text style={styles.itemDet}>{capitalize(c.detalles)}</Text> : null }
+          { c.obs ? <Text style={styles.itemObs}>“{c.obs}”</Text> : null }
         </View>
+        <Text style={styles.itemPrecio}>${Number(c.importe ?? 0).toFixed(2)}</Text>
       </>
     )
     // Los combos comandados se pueden modificar
@@ -962,6 +959,7 @@ const cuenta = () => {
         cantGustos={cantGustos}
         cantMax={cantMaxGustos}
         esSeleccionado={(id) => combosGustos.some((c) => c.idGusto == id && c.idSeccion == ultSeccion && c.idPlato == ultPlato && c.cant > 0)}
+        cantidadSeleccionada={(id) => combosGustos.find((c) => c.idGusto == id && c.idSeccion == ultSeccion && c.idPlato == ultPlato)?.cant ?? 0}
         onUnico={(g) => handleGustoUnico(g.idGusto,g.descGusto,g.idPlatoRel)}
         onInc={(valor,inc,g) => handleGustosInc(valor,inc,g.idGusto,g.descGusto,g.idPlatoRel)}
         onConfirmar={handleConfirmarGustos}
@@ -1091,6 +1089,11 @@ const styles = StyleSheet.create({
   itemTextos: {
     flex: 1,
     gap: 2,
+  },
+  itemPrecio: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Colors.colorazulboton,
   },
   item: {
     fontSize: 18,

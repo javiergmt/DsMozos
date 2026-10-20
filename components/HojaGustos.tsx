@@ -9,9 +9,9 @@ import {
   BottomSheetModal,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet'
-import InputSpinner from 'react-native-input-spinner'
 import Colors from '../constants/Colors'
 import FilaGustoUnico from './FilaGustoUnico'
+import SelectorCantidad from './SelectorCantidad'
 import { gustosType } from '../app/ApiFront/Types/BDTypes'
 
 type Props = {
@@ -20,6 +20,7 @@ type Props = {
   cantGustos: number
   cantMax: number
   esSeleccionado: (idGusto: number) => boolean
+  cantidadSeleccionada: (idGusto: number) => number
   onUnico: (g: gustosType) => void
   onInc: (valor: number, inc: number, g: gustosType) => void
   onConfirmar: () => void
@@ -30,7 +31,7 @@ const ALTO_FOOTER = 84
 // Hoja de seleccion de gustos (fondo blanco). Es obligatoria: no se cierra tocando afuera ni arrastrando.
 // Con maximo 1 se elige con seleccion simple, con mas se usa el contador por gusto.
 // Requiere BottomSheetModalProvider en el layout raiz.
-export default function HojaGustos({ visible, gustos, cantGustos, cantMax, esSeleccionado, onUnico, onInc, onConfirmar }: Props) {
+export default function HojaGustos({ visible, gustos, cantGustos, cantMax, esSeleccionado, cantidadSeleccionada, onUnico, onInc, onConfirmar }: Props) {
   const ref = useRef<BottomSheetModal>(null)
   const { height } = useWindowDimensions()
   const excedido = cantGustos > cantMax
@@ -89,12 +90,10 @@ export default function HojaGustos({ visible, gustos, cantGustos, cantMax, esSel
         ) : (
           <View style={styles.gusto} key={g.idGusto}>
             <Text style={styles.gustoText} numberOfLines={2}>{g.descGusto}</Text>
-            <InputSpinner
-              value={0}
-              style={styles.spinner}
-              color={Colors.colorcheckbox}
-              onIncrease={(value) => onInc(value as number, 1, g)}
-              onDecrease={(value) => onInc(value as number, -1, g)}
+            <SelectorCantidad
+              value={cantidadSeleccionada(g.idGusto)}
+              disableIncrease={cantGustos >= cantMax}
+              onChange={(value) => onInc(value, value - cantidadSeleccionada(g.idGusto), g)}
             />
           </View>
         ))}
@@ -144,11 +143,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
     color: Colors.colorfondoBoton,
-  },
-  spinner: {
-    width: 140,
-    backgroundColor: '#f1f3f5',
-    borderRadius: 10,
   },
   footer: {
     flexDirection: 'row',

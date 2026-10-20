@@ -12,6 +12,7 @@ import BouncyCheckbox from "react-native-bouncy-checkbox";
 import { getFechaHoraActual, getHoraActual } from '../../../Funciones/deConversion'
 import { showToast } from '../../../Funciones/deInfo'
 import HojaGustos from '../../../../components/HojaGustos'
+import SelectorCantidad from '../../../../components/SelectorCantidad'
 import { Redirect, Stack, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -209,24 +210,18 @@ const selCombos = () => {
 
   // Control de los gustos de un Plato seleccionado
   const handleGustosInc = (cantg:number,inc:number, id:number,descrip:string,idPlatoRel:number) => {
-      let cant = cantGustos + inc
-      let noEsta = true       
-      
-      combosGustos.forEach((m) => {
-        if (m.idGusto == id) {
-          m.cant = 1
-          noEsta = false
-        }
-       })
-      if (noEsta) {
-          setCombosGustos([...combosGustos,{idSeccion:ultSeccion,idPlato:ultPlato,idGusto:id,descGusto:descrip,cant:1,idPlatoRel:idPlatoRel}])
-      }
-        setCantGustos(cant)
-        if (cant > cantMaxGustos) {
-         mostrarDialogo('Atención','No puede seleccionar más de '+cantMaxGustos.toString()+' Variedades')
-      } 
-        
-      //console.log('MesaGustos:',mesaGustos)
+      const cant = cantGustos + inc
+      if (cant > cantMaxGustos) return
+
+      setCombosGustos((actuales) => {
+        const otros = actuales.filter((g) =>
+          !(g.idGusto == id && g.idSeccion == ultSeccion && g.idPlato == ultPlato)
+        )
+        return cantg > 0
+          ? [...otros,{idSeccion:ultSeccion,idPlato:ultPlato,idGusto:id,descGusto:descrip,cant:cantg,idPlatoRel:idPlatoRel}]
+          : otros
+      })
+      setCantGustos(cant)
   }
 
  
@@ -319,37 +314,21 @@ const selCombos = () => {
   
       setItem(it)
       console.log('Traigo Item:',it)
-      setComboDet(null)
       const load = async () => {
-        const result = await getComboSec(it.idPlato,urlBase,BaseDatos);
-        return result
-      } 
-    
-      load().then((res) => {
+        const res = await getComboSec(it.idPlato,urlBase,BaseDatos);
         setComboSec(res)
-        let sec = [] as comboDetType[][]
-        res.map (async (s) => {
-          //const seccion = await cargaSeccion(s.idSeccion,urlBase,BaseDatos,0,0,0) 
-         
+        const sec = await Promise.all(res.map(async (s) => {
           const seccion = await getComboDet(s.idSeccion,urlBase,BaseDatos);
-          // console.log('Carga Seccion:',seccion)
-          if (seccion.length > 1) {  
-            seccion.forEach((r) => {              
-              r.selected = false
-              r.cantidad = 0
-            }) 
-          } else {
-            if ( s.autocompletar == true ) {
-              seccion[0].selected = true 
-            } else {
-              seccion[0].selected = false
-            }  
+          const conPrecios = seccion.map((r) => ({...r, selected: false, cantidad: 0}))
+          if (conPrecios.length == 1 && s.autocompletar) {
+            conPrecios[0].selected = true
           }
-          console.log('Seccion:',seccion)    
-          sec.push(seccion)
-        })
+          console.log('Seccion:',conPrecios)
+          return conPrecios
+        }))
         setComboDet(sec)
-      })
+      }
+      load()
  
   },[] )
 
@@ -363,6 +342,7 @@ const selCombos = () => {
        <Text style={styles.seccion}>Armar combo</Text>
        <View style={styles.tituloFila}>
          <Text style={styles.tituloText} numberOfLines={2}>{item.descripcion}</Text>
+         <Text style={styles.tituloPrecio}>${Number(item.pcioUnit ?? 0).toFixed(2)}</Text>
          {isOk ? (
           <TouchableOpacity style={styles.btConfirmarCombo} onPress={handleConfirmar} activeOpacity={0.7}>
             <Ionicons name="checkmark" size={22} color="white" />
@@ -422,6 +402,7 @@ const selCombos = () => {
 
         <View style={styles.checkboxContainer} key={d.idPlato} >
           <BouncyCheckbox
+            style={styles.comboCheckbox}
             size={25}
             fillColor={Colors.colorcheckbox}
             isChecked={d.selected}
@@ -440,15 +421,16 @@ const selCombos = () => {
         cd.filter (d => d.idSeccion == ultSeccion).map((d) => (
         <View style={styles.checkboxContainer} key={d.idPlato}>
             <Text style={styles.text} numberOfLines={2}>{d.descripcion +' '+d.tamanio}</Text>
-            <InputSpinner
+            <SelectorCantidad
               value={d.cantidad ? d.cantidad : 0}
-              editable={false}
-              max={cantMax}
-              skin ="clean"
-              style={styles.spinner}
-              color={Colors.colorcheckbox}
-              onIncrease={(value) => { handleSeccionPress(value as number,1,d.idSeccion,d.idPlato,d.idTipoConsumo,d.cantGustos) }}
-              onDecrease={(value) => { handleSeccionPress(value as number,-1,d.idSeccion,d.idPlato,d.idTipoConsumo,d.cantGustos) }}
+              disableIncrease={comboDet
+                .filter((seccion) => seccion.some((plato) => plato.idSeccion == d.idSeccion))
+                .flat()
+                .reduce((total, plato) => total + (plato.cantidad ?? 0), 0) >= cantMax}
+              onChange={(value) => {
+                const diferencia = value - (d.cantidad ?? 0)
+                handleSeccionPress(value,diferencia,d.idSeccion,d.idPlato,d.idTipoConsumo,d.cantGustos)
+              }}
             />
         </View>
         ))
@@ -466,6 +448,7 @@ const selCombos = () => {
       cantGustos={cantGustos}
       cantMax={cantMaxGustos}
       esSeleccionado={(id) => combosGustos.some((c) => c.idGusto == id && c.idSeccion == ultSeccion && c.idPlato == ultPlato && c.cant > 0)}
+      cantidadSeleccionada={(id) => combosGustos.find((c) => c.idGusto == id && c.idSeccion == ultSeccion && c.idPlato == ultPlato)?.cant ?? 0}
       onUnico={(g) => handleGustoUnico(g.idGusto,g.descGusto,g.idPlatoRel)}
       onInc={(valor,inc,g) => handleGustosInc(valor,inc,g.idGusto,g.descGusto,g.idPlatoRel)}
       onConfirmar={handleConfirmarGustos}
@@ -507,6 +490,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 26,
     fontWeight: "bold",
+    color: Colors.colorazulboton,
+  },
+  tituloPrecio: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: Colors.colorazulboton,
   },
   btConfirmarCombo: {
@@ -603,6 +591,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.colorFondoCuenta,
     borderLeftWidth: 4,
     borderLeftColor: Colors.colorborderubro,
+  },
+  comboCheckbox: {
+    flex: 1,
   },
   checkbox: {
     flex: 1,

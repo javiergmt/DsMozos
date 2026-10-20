@@ -17,7 +17,11 @@ const altoReservadoVertical = 340;
 // En horizontal el encabezado y el boton van al costado: solo se reserva header de pantalla y pie
 const altoReservadoHorizontal = 190;
 
-const CustomDialPad = ({setPass}) => {
+type CustomDialPadProps = {
+  setPass: (code: number[]) => void;
+};
+
+const CustomDialPad = ({ setPass }: CustomDialPadProps) => {
 
 // Se recalcula al rotar la pantalla
 const { width, height } = useWindowDimensions();
@@ -45,8 +49,8 @@ const encabezado = (
               <View style={styles.iconoCirculo}>
                 <Ionicons name="person" size={20} color={Colors.colorletrabotones} />
               </View>
-              <Text style={styles.titulo}>Ingrese su código</Text>
-              <Text style={styles.subtitulo}>Código de mozo</Text>
+              <Text style={styles.titulo}>Ingresar código</Text>
+              
            </View>
 )
 

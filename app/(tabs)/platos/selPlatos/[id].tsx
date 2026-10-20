@@ -181,8 +181,11 @@ const selPlatos = () => {
           <Text style={styles.itemName} numberOfLines={2}>{capitalize(item.descripcion)}</Text>
           {sub != '' ? <Text style={styles.itemPcio}>{sub}</Text> : null}
         </View>
-        <View style={[styles.itemIcon, sub != '' ? styles.itemIconPaso : null]}>
-          <Ionicons name={sub != '' ? 'chevron-forward' : 'add'} size={22} color="white" />
+        <View style={styles.renglonDerecha}>
+          <Text style={styles.precio}>${Number(item.pcioUnit ?? 0).toFixed(2)}</Text>
+          <View style={[styles.itemIcon, sub != '' ? styles.itemIconPaso : null]}>
+            <Ionicons name={sub != '' ? 'chevron-forward' : 'add'} size={22} color="white" />
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -259,6 +262,7 @@ const selPlatos = () => {
                       <Text style={styles.text} numberOfLines={3} adjustsFontSizeToFit>
                         {hyphenatedText(capitalize(p.descCorta))}
                       </Text>
+                      <Text style={styles.precioTarjeta}>${Number(p.pcioUnit ?? 0).toFixed(2)}</Text>
                       {conPaso ? (
                         <View style={styles.botonPaso}>
                           <Ionicons name="chevron-forward" size={12} color="white" />
@@ -416,6 +420,15 @@ const styles = StyleSheet.create({
     color: Colors.colorazulboton,
     marginTop: 2,
   },
+  renglonDerecha: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  precio: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Colors.colorazulboton,
+  },
   itemIcon: {
     width: 36,
     height: 36,
@@ -441,6 +454,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 6,
+    paddingBottom: 26,
     borderRadius: 16,
     borderWidth: 2,
     borderColor: Colors.colorborderubro,
@@ -454,6 +468,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
     textAlign: 'center',
+    color: 'black',
+  },
+  precioTarjeta: {
+    position: 'absolute',
+    right: 8,
+    bottom: 5,
+    fontSize: 13,
+    fontWeight: 'bold',
     color: 'black',
   },
   botonPaso: {

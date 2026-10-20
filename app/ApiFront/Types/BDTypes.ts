@@ -217,6 +217,7 @@ export type modifType ={
   idPlato: number;
   idTamanio: number;
   descTam: string;
+  pcioUnit?: number;
 }
 
 export type comboSecType = {
@@ -417,4 +418,3 @@ export interface datosApp
     ptoVta: number, 
     conectado: number 
 }
-
